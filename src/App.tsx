@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
-  Plus, Calendar, User, Bell, Search, Filter, Info, CheckCircle, XCircle 
+  Plus, Calendar, User, Bell, Search, Filter, Info, CheckCircle, XCircle,
 } from 'lucide-react';
 import BookingModal from './components/BookingModal';
 import DetailModal from './components/DetailModal';
+import RoomDetailModal from './components/RoomDetailModal';
+import RoomCard from './components/RoomCard';
 
 export default function App() {
   const [bookings, setBookings] = useState([]);
@@ -14,6 +16,11 @@ export default function App() {
   const [dataToEdit, setDataToEdit] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('latest');
+  const [rooms, setRooms] = useState([]);
+const [selectedRoom, setSelectedRoom] = useState<any>(null);
+const [isRoomDetailOpen, setIsRoomDetailOpen] = useState(false);
+const [editingBooking, setEditingBooking] = useState<any>(null);
+const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
   const API_URL = 'http://localhost:5148/api/booking';
 
@@ -24,7 +31,32 @@ export default function App() {
     } catch (err) { console.error("Gagal load data", err); }
   };
 
-  useEffect(() => { fetchBookings(); }, []);
+  const fetchRooms = async () => {
+  try {
+    const res = await axios.get('http://localhost:5148/api/room');
+    setRooms(res.data);
+  } catch (err) {
+    console.error("Gagal ambil data ruangan", err);
+  }
+};
+
+  useEffect(() => { fetchBookings(); fetchRooms(); }, []);
+
+  const handleEditBookingFromRoom = (booking: any) => {
+  console.log("Menyiapkan data booking:", booking);
+  
+  
+  setEditingBooking(booking); 
+  
+  // 2. Tutup modal detail ruangan
+  setIsRoomDetailOpen(false); 
+  
+  // 3. Beri jeda sedikit lebih lama (misal 200ms) agar animasi fade-out modal pertama selesai
+  setTimeout(() => {
+    console.log("Membuka modal booking sekarang...");
+    setIsBookingModalOpen(true);
+  }, 200); 
+};
 
   const handleUpdateStatus = async (id: number, newStatus: string) => {
   try {
@@ -75,7 +107,7 @@ export default function App() {
       <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-40 w-[95%] max-w-5xl">
         <div className="bg-white/70 backdrop-blur-lg border border-white/20 shadow-xl rounded-2xl px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 font-black text-xl text-indigo-600">
-            <Calendar size={20} /> <span>RoomSync</span>
+            <Calendar size={20} /> <span>RoomBooking</span>
           </div>
           <div className="flex items-center gap-4">
             <Bell className="text-slate-400" size={20} />
@@ -94,6 +126,23 @@ export default function App() {
             <Plus size={20} /> Buat Peminjaman
           </button>
         </header>
+
+        <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+  {rooms && rooms.length > 0 ? (
+    rooms.map((room: any) => (
+      <RoomCard 
+        key={room.id} 
+        room={room} 
+        onClick={(r) => {
+          setSelectedRoom(r);
+          setIsRoomDetailOpen(true);
+        }} 
+      />
+    ))
+  ) : (
+    <p className="text-slate-400 italic">Memuat data ruangan...</p>
+  )}
+</section>
 
         {/* SEARCH & FILTER */}
         <div className="flex flex-col md:flex-row gap-4 mb-6 justify-between">
@@ -152,6 +201,14 @@ export default function App() {
         onDelete={handleDelete}
         onEdit={handleOpenEdit} 
       />
+      <RoomDetailModal 
+  isOpen={isRoomDetailOpen}
+  room={selectedRoom}
+  onClose={() => setIsRoomDetailOpen(false)}
+  onRefresh={fetchRooms}
+  bookings={bookings.filter((b: any) => b.roomName === selectedRoom?.name && b.status === 'Approved')}
+  onEditBooking={handleEditBookingFromRoom} // <-- Tambahkan props ini
+/>
     </div>
   );
 }
